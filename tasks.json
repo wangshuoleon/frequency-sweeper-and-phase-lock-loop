@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Icarus Verilog Simulation",
+            "type": "shell",
+            "command": "iverilog -g2012 -o ${fileDirname}/sim_output ${file} && vvp ${fileDirname}/sim_output",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Generate VCD Waveform",
+            "type": "shell",
+            "command": "iverilog -g2012 -o ${fileDirname}/sim_output ${file} && vvp ${fileDirname}/sim_output && gtkwave ${fileDirname}/dump.vcd",
+            "group": "build"
+        }
+    ]
+}

@@ -1,0 +1,18 @@
+{
+    // Enable Verilog linting using Icarus Verilog
+    "verilog.linting.linter": "iverilog",
+    
+    // Optional: Arguments for iverilog (e.g., strict warnings)
+    "verilog.linting.iverilog.arguments": "-Wall",
+    
+    // Set Verilog language mode for .v files
+    "files.associations": {
+        "*.v": "verilog"
+    },
+    
+    // Auto-formatting (if using a formatter)
+    "editor.formatOnSave": true,
+    
+    // Enable VCD dump for waveforms (if using $dumpvars)
+    "verilog.trace.server": "verbose"
+}
