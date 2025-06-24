@@ -5,8 +5,8 @@ module phase_detector (
     input wire [7:0] signal,  // Input signal to measure
     input wire [7:0] ref_sig, // Reference signal (8MHz)
     input wire [7:0] ref_sig_q, // Quadrature reference
-    output reg signed [15:0] phase_out, // Phase in 0.01 degrees
-    output reg [15:0] magnitude_out,    // output magnitute signal
+    output reg [31:0] q_component, // Phase in 0.01 degrees
+    output reg [31:0] i_component,    // output magnitute signal
     output reg data_valid    // Valid flag
 );
 
@@ -35,17 +35,19 @@ always @(posedge clk or posedge reset) begin
         state <= IDLE;
         i_accum <= 0;
         q_accum <= 0;
-        phase_out <= 0;
-        magnitude_out <= 0;
+        q_component <= 0;
+        i_component <= 0;
         data_valid <= 0;
         trigger_delay <= 0;
+        i_product<=0;
+        q_product<=0;
     end else begin
         trigger_delay <= trigger;
         
         case (state)
             IDLE: begin
                 data_valid <= 0;
-                if (trigger_rise) begin
+                if (trigger_delay) begin
                     i_accum <= 0;
                     q_accum <= 0;
                     state <= ACCUMULATE;
@@ -54,31 +56,24 @@ always @(posedge clk or posedge reset) begin
             
             ACCUMULATE: begin
                 // Multiply and accumulate
+                data_valid<=0;
                 i_product <= $signed(signal) * $signed(ref_sig);
                 q_product <= $signed(signal) * $signed(ref_sig_q);
                 
                 i_accum <= i_accum + i_product;
                 q_accum <= q_accum + q_product;
                 
-                if (trigger_rise) begin
+                if (trigger_delay) begin
                     state <= HOLD;
                 end
             end
             
             HOLD: begin
-                // Calculate phase (arctan(Q/I))
-                if (i_accum == 0) begin
-                    phase_out <= (q_accum > 0) ? 16'sd9000 : -16'sd9000;
-                end else begin
-                    phase_out <= (q_accum * 1000) / i_accum;
-                end
-                
-                // Calculate magnitude (sqrt(I^2 + Q^2))
-                magnitude_out <= (i_accum[31] ? -i_accum : i_accum) + 
-                                 (q_accum[31] ? -q_accum : q_accum); // Approximation
-                
+                // directly output Q and I component
+                q_component<=q_accum;
+                i_component<=i_accum;
                 data_valid <= 1;
-                state <= IDLE;
+                state <= ACCUMULATE;
             end
         endcase
     end

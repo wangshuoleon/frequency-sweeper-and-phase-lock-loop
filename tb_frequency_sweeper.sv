@@ -22,8 +22,8 @@ module tb_frequency_sweeper();
     wire phase_accumulator_reset;
 
     // phase detector
-    reg [15:0] phase_out;
-    reg [15:0] magnitude_out;
+    reg [31:0] q_component;
+    reg [31:0] i_component;
     wire data_valid;
 
 
@@ -68,8 +68,8 @@ module tb_frequency_sweeper();
         .signal(q_dac_data),  // Input signal to measure
         .ref_sig (dac_data), // Reference signal (8MHz)
         .ref_sig_q (q_dac_data), // Quadrature reference
-        .phase_out (phase_out), // Phase in 0.01 degrees
-        .magnitude_out (magnitude_out),    // output magnitute signal
+        .q_component (q_component), // Phase in 0.01 degrees
+        .i_component (i_component),    // output magnitute signal
         .data_valid(data_valid)    // Valid flag
     );
     
