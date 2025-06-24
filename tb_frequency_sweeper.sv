@@ -18,6 +18,16 @@ module tb_frequency_sweeper();
     
     // DDS Output
     wire [7:0] dac_data;
+    wire [7:0] q_dac_data;
+    wire phase_accumulator_reset;
+
+    // phase detector
+    reg [15:0] phase_out;
+    reg [15:0] magnitude_out;
+    wire data_valid;
+
+
+
     
     // Test parameters
     parameter CLK_PERIOD = 20;  // 50 MHz clock (20 ns period)
@@ -46,9 +56,24 @@ module tb_frequency_sweeper();
         .clk(clk),
         .reset(reset),
         .freq_tuning_word(dds_freq),
-        .dac_data(dac_data)
+        .dac_data(dac_data),
+        .q_dac_data(q_dac_data),
+        .phase_accumulator_reset(phase_accumulator_reset)
+    );
+
+    phase_detector  pd(
+        .clk(clk),            // 50 MHz clock
+        .reset(reset),          // Active-high reset
+        .trigger(phase_accumulator_reset),        // Rising edge triggers output and reset
+        .signal(q_dac_data),  // Input signal to measure
+        .ref_sig (dac_data), // Reference signal (8MHz)
+        .ref_sig_q (q_dac_data), // Quadrature reference
+        .phase_out (phase_out), // Phase in 0.01 degrees
+        .magnitude_out (magnitude_out),    // output magnitute signal
+        .data_valid(data_valid)    // Valid flag
     );
     
+
     // Clock generation
     always begin
         clk = 1'b0;
