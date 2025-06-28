@@ -6,7 +6,7 @@ module UART_RX_FIFO #(
     input wire clk_50m,
     input wire reset,
     input wire rx,
-    output wire [7:0] fifo_data_out,
+    output wire [87:0] fifo_data_out,
     input wire fifo_rd_en,
     output wire fifo_empty,
     output wire fifo_full,

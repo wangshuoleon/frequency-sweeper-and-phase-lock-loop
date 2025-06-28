@@ -23,7 +23,8 @@ module UART_RX_FIFO_TB;
     UART_RX_FIFO #(
         .UART_BAUD(BAUD_RATE),
         .FIFO_WIDTH(8),
-        .FIFO_DEPTH(4)  // Small FIFO for testing overflow
+        .FIFO_DEPTH(11),  // Small FIFO for testing overflow
+        .READ_SCALAR(11) // READ for 10 bytes for once
     ) uut (
         .clk_50m(clk_50m),
         .reset(reset),
