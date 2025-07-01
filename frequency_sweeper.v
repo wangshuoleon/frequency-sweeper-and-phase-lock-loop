@@ -18,7 +18,7 @@ module frequency_sweeper (
     reg [31:0] init_freq;
     reg [15:0] cycles_per_step;
     reg [31:0] freq_step;
-    reg mode_select;               // 0 = Sweep, 1 = PLL
+    reg [87:0] instr_buffer;              
     
     // PLL control registers
     reg [31:0] pll_integral;
@@ -30,10 +30,12 @@ module frequency_sweeper (
     reg [15:0] cycle_counter;
     reg [7:0] step_counter;        // 255 steps max (8-bit)
     reg [2:0] state;               // Expanded to 3 bits for extra states
+    reg [2:0] decode_stage;        // decode state
 
     // State encoding
     localparam IDLE      = 3'b000;
     localparam LOAD      = 3'b001;
+    localparam DECODE    = 3'b111;
     localparam SWEEP     = 3'b010;
     localparam PLL_LOCK  = 3'b011;
     localparam PLL_TRACK = 3'b100;
@@ -62,23 +64,43 @@ module frequency_sweeper (
 
                 LOAD: begin
                     fifo_rd_en <= 0;
-                    // Unpack instruction word
-                    {init_freq, cycles_per_step, freq_step, mode_select} <= fifo_data;
-                    
-                    dds_freq <= fifo_data[79:48];
-                    cycle_counter <= 0;
-                    step_counter <= 0;
-                    
-                    if (mode_select) begin
-                        // PLL mode
-                        state <= PLL_LOCK;
-                        pll_integral <= 0; // Reset integrator
-                    end else begin
-                        // Sweep mode
-                        state <= SWEEP;
-                        sweep_start <= 1;
-                    end
+                    // load the instruction
+                    instr_buffer <= fifo_data;
+                    // reset the decode stage to 0
+                    decode_stage <= 0;
+                    state <= DECODE;
                 end
+
+                DECODE: begin
+                  case (decode_stage)
+                        3'd0: begin
+                        init_freq <= instr_buffer[79:48];
+                        decode_stage <= 3'd1;
+                    end
+                        3'd1: begin
+                        cycles_per_step <= instr_buffer[47:32];
+                        decode_stage <= 3'd2;
+                    end
+                        3'd2: begin
+                        freq_step <= instr_buffer[31:0];
+                        decode_stage <= 3'd3;
+                    end
+                        3'd3: begin
+                        // mode_select <= instr_buffer[87];
+                        // 0 = Sweep, 1 = PLL
+                        dds_freq <= init_freq;  // Initialize frequency
+                        cycle_counter <= 0;
+                        step_counter <= 0;
+                        if (instr_buffer[87]) begin
+                            pll_integral <= 0;
+                            state <= PLL_LOCK;
+                        end else begin
+                            sweep_start <= 1;
+                            state <= SWEEP;
+                        end
+                    end
+                    endcase
+                 end
 
                 SWEEP: begin
                     sweep_start <= 0;
