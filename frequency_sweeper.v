@@ -30,7 +30,9 @@ module frequency_sweeper (
     reg [15:0] cycle_counter;
     reg [7:0] step_counter;        // 255 steps max (8-bit)
     reg [2:0] state;               // Expanded to 3 bits for extra states
+    // Pipeline registers
     reg [2:0] decode_stage;        // decode state
+    reg [2:0] load_cycles;       // load cycles for the instruction
 
     // State encoding
     localparam IDLE      = 3'b000;
@@ -57,18 +59,28 @@ module frequency_sweeper (
                     sweep_done <= 0;
                     pll_enable <= 0;
                     if (fifo_empty) begin
+                        // hand shake with FIFO
                         fifo_rd_en <= 1;
                         state <= LOAD;
+                        // reset the load counter
+                        load_cycles <= 0;
                     end
                 end
-
+                
+                
                 LOAD: begin
                     fifo_rd_en <= 0;
                     // load the instruction
+                    // this path could be set as multiple cycles in timing constraints
                     instr_buffer <= fifo_data;
                     // reset the decode stage to 0
                     decode_stage <= 0;
-                    state <= DECODE;
+                    if (load_cycles < 4) begin
+                        load_cycles <= load_cycles + 1;
+                    end else begin
+                        load_cycles <= 0;
+                        state <= DECODE; // go to decode state after loading
+                    end
                 end
 
                 DECODE: begin
