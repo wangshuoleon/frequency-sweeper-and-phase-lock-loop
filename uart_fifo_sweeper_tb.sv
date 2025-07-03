@@ -28,7 +28,20 @@ module UART_FIFO_SWEEPER_TB;
     reg [7:0] dac_data;
     reg [7:0] q_dac_data;
     reg  phase_accumulator_reset;
+
+    // Phase Detector Outputs
+    wire [39:0] q_component; // Phase in 0.01 degrees   
+    wire [39:0] i_component; // Output magnitude signal
+    wire data_valid;
     
+    // uart_tx
+    wire tx;
+    wire output_fifo_empty;
+    wire [7:0] fifo_output;
+    wire read_fifo_flag; // FIFO read flag
+    wire baud_clk; // Baud rate clock 
+
+
     // Instantiate the UART RX + FIFO module
     UART_RX_FIFO #(
         .UART_BAUD(BAUD_RATE),
@@ -67,6 +80,55 @@ module UART_FIFO_SWEEPER_TB;
         .q_dac_data (q_dac_data),   // 8-bit output that Quadrature to the dac_data
         .phase_accumulator_reset (phase_accumulator_reset) 
     );
+
+    // DDS Output to phase detector
+    phase_detector  pd(
+        .clk(clk_50m),            // 50 MHz clock
+        .reset(reset),          // Active-high reset
+        .trigger(phase_accumulator_reset),        // Rising edge triggers output and reset
+        .signal(dac_data),  // Input signal to measure
+        .ref_sig(dac_data), // Reference signal (8MHz)
+        .ref_sig_q(q_dac_data), // Quadrature reference
+        .q_component(q_component), // Phase in 0.01 degrees
+        .i_component(i_component),    // output magnitute signal
+        .data_valid(data_valid)    // Valid flag
+);
+
+
+    
+      // phase_detecter interface with output fifo
+    fifo_80_to_8  fifo_output_module(
+    .clk(clk_50m),
+    .reset(reset),
+    // 80-bit input interface
+    .wr_en(data_valid),
+    .din({ q_component, i_component }), // Concatenate Q and I components
+    .full(),
+    // 8-bit output interface
+    .rd_en(read_fifo_flag), // Read signal from UART_TX
+    .dout(fifo_output),
+    .empty(output_fifo_empty), // FIFO empty flag
+    .bytes_available()  // Count of available bytes
+);
+
+      // interface between fifo and uart_tx
+    UART_TX send_to_host(
+	.din(fifo_output),	//传输数据
+	.wr_en(~output_fifo_empty),			//传输使能
+	.clk_50m(clk_50m),		//时钟
+	.clken(baud_clk),			//波特率
+	.tx(tx),				//数据发送线
+	.tx_busy(),		//传输忙
+	.read_fifo_flag(read_fifo_flag) // FIFO read flag
+);
+
+    Baud_Rate #(
+    .BAUD (BAUD_RATE)
+) br (
+	.clk_50m(clk_50m),		//时钟
+	.rxclk_en(),	//波特率
+	.txclk_en(baud_clk)
+);
 
 
 
@@ -107,7 +169,7 @@ module UART_FIFO_SWEEPER_TB;
         // Wait for sweep to complete
         wait(sweep_done);
         $display("=== Sweep Complete ===");
-        #1000;
+        #10000;
         
         // Test Case 2: Send PLL command
         $display("=== Sending PLL Command ===");

@@ -2,11 +2,11 @@ module phase_detector (
     input wire clk,            // 50 MHz clock
     input wire reset,          // Active-high reset
     input wire trigger,        // Rising edge triggers output and reset
-    input wire [7:0] signal,  // Input signal to measure
+    input wire [11:0] signal,  // Input signal to measure, input from 12 bit ADC (50MHz)
     input wire [7:0] ref_sig, // Reference signal (8MHz)
     input wire [7:0] ref_sig_q, // Quadrature reference
-    output reg [31:0] q_component, // Phase in 0.01 degrees
-    output reg [31:0] i_component,    // output magnitute signal
+    output reg [39:0] q_component, // Phase in 0.01 degrees
+    output reg [39:0] i_component,    // output magnitute signal
     output reg data_valid    // Valid flag
 );
 
@@ -22,7 +22,7 @@ reg [1:0] state;      // Current state
 
 // Product registers
 reg signed [23:0] i_product, q_product;
-reg signed [31:0] i_accum, q_accum;
+reg signed [39:0] i_accum, q_accum;
 reg trigger_delay;
 
 // Detect rising edge of trigger
@@ -72,8 +72,11 @@ always @(posedge clk or posedge reset) begin
                 // directly output Q and I component
                 q_component<=q_accum;
                 i_component<=i_accum;
+                q_accum <= 0; // Reset accumulators
+                i_accum <= 0;   
                 data_valid <= 1;
-                state <= ACCUMULATE;
+                state<= ACCUMULATE; // go back to accumulate state
+                
             end
         endcase
     end
