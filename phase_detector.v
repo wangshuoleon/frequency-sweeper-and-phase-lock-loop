@@ -26,8 +26,8 @@ reg signed [39:0] i_accum, q_accum;
 reg trigger_delay;
 
 // Detect rising edge of trigger
-wire trigger_rise;
-assign trigger_rise = trigger & ~trigger_delay;
+reg trigger_delay2;
+
 
 // State transition logic
 always @(posedge clk or posedge reset) begin
@@ -42,12 +42,13 @@ always @(posedge clk or posedge reset) begin
         i_product<=0;
         q_product<=0;
     end else begin
-        trigger_delay <= trigger;
+        trigger_delay2 <= trigger;
+        trigger_delay <= trigger_delay2;
         
         case (state)
             IDLE: begin
                 data_valid <= 0;
-                if (trigger_delay) begin
+                if (trigger) begin
                     i_accum <= 0;
                     q_accum <= 0;
                     state <= ACCUMULATE;
@@ -63,7 +64,7 @@ always @(posedge clk or posedge reset) begin
                 i_accum <= i_accum + i_product;
                 q_accum <= q_accum + q_product;
                 
-                if (trigger_delay) begin
+                if (trigger) begin
                     state <= HOLD;
                 end
             end

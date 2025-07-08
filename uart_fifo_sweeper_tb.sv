@@ -23,6 +23,7 @@ module UART_FIFO_SWEEPER_TB;
     wire [31:0] dds_freq;
     wire sweep_start;
     wire sweep_done;
+    wire frequency_update; // Pulse when new frequency is valid
 
     //dds
     reg [7:0] dac_data;
@@ -68,6 +69,7 @@ module UART_FIFO_SWEEPER_TB;
         .dds_freq(dds_freq),
         .sweep_start(sweep_start),
         .sweep_done(sweep_done),
+        .frequency_update(frequency_update), 
         .phase_error(16'h0),  // Not used in this test
         .pll_enable()     // Not used in this test
     );
@@ -85,7 +87,7 @@ module UART_FIFO_SWEEPER_TB;
     phase_detector  pd(
         .clk(clk_50m),            // 50 MHz clock
         .reset(reset),          // Active-high reset
-        .trigger(phase_accumulator_reset),        // Rising edge triggers output and reset
+        .trigger(frequency_update),        // Rising edge triggers output and reset
         .signal(dac_data),  // Input signal to measure
         .ref_sig(dac_data), // Reference signal (8MHz)
         .ref_sig_q(q_dac_data), // Quadrature reference

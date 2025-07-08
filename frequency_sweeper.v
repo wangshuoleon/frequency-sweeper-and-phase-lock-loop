@@ -9,6 +9,7 @@ module frequency_sweeper (
     output reg [31:0] dds_freq,    // Current frequency tuning word
     output reg sweep_start,        // Pulse to start sweep
     output reg sweep_done,         // Pulse when sweep completes
+    output reg frequency_update, // Pulse when new frequency is valid
     // PLL Interface
     input wire [15:0] phase_error, // Phase error from phase detector (signed)
     output reg pll_enable          // PLL control enable
@@ -103,6 +104,7 @@ module frequency_sweeper (
                         dds_freq <= init_freq;  // Initialize frequency
                         cycle_counter <= 0;
                         step_counter <= 0;
+                        frequency_update <= 1; // Indicate new frequency is valid
                         if (instr_buffer[87]) begin
                             pll_integral <= 0;
                             state <= PLL_LOCK;
@@ -118,11 +120,13 @@ module frequency_sweeper (
                     sweep_start <= 0;
                     if (cycle_counter < cycles_per_step) begin
                         cycle_counter <= cycle_counter + 1;
+                        frequency_update <= 0; // No new frequency update during sweep
                     end else begin
                         cycle_counter <= 0;
                         if (step_counter < 255) begin
                             step_counter <= step_counter + 1;
                             dds_freq <= dds_freq + freq_step;
+                            frequency_update <= 1; // New frequency is valid
                         end else begin
                             sweep_done <= 1;
                             state <= IDLE;
