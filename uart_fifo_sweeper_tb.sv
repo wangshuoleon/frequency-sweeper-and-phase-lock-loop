@@ -11,7 +11,14 @@ module UART_FIFO_SWEEPER_TB;
     reg clk_50m;
     reg reset;
     reg rx;
-    
+
+    //uart_rx and input_fifo
+    wire [7:0] data_byte;
+    wire rx_done; // Pulse when a byte is received
+
+
+
+
     // UART-FIFO Outputs
     wire [87:0] fifo_data_out;
     wire fifo_empty;
@@ -43,8 +50,41 @@ module UART_FIFO_SWEEPER_TB;
     wire baud_clk; // Baud rate clock 
 
 
+
+    // updated uart_rx
+    uart_byte_rx #(
+    .CLK_FREQ (50_000_000),   // 50MHz system clock
+    .BAUD_RATE (BAUD_RATE)         // Default baud rate
+    )uart_rx_inst(
+	.clk(clk_50m),
+	.reset(reset),
+
+	// baud_set,
+	.uart_rx(rx),
+
+	.data_byte(data_byte), // Output data byte
+	.rx_done(rx_done)// Pulse when a byte is received
+);
+
+  fifo input_fifo(
+    .clk(clk_50m),
+    .reset(reset),
+    // Write interface
+    .wr_en(rx_done),
+    .din(data_byte),
+    .full(fifo_full),
+    .almost_full(),
+    // Read interface
+    .rd_en(sweeper_fifo_rd_en),
+    .dout(fifo_data_out),
+    .empty(),
+    .almost_empty(),
+    .count()
+);
+
+
     // Instantiate the UART RX + FIFO module
-    UART_RX_FIFO #(
+   /*  UART_RX_FIFO #(
         .UART_BAUD(BAUD_RATE),
         .FIFO_WIDTH(8),
         .FIFO_DEPTH(11)  // Larger FIFO for sweeper commands
@@ -57,7 +97,7 @@ module UART_FIFO_SWEEPER_TB;
         .fifo_empty(fifo_empty),
         .fifo_full(fifo_full),
         .fifo_almost_full()  // Not used
-    );
+    ); */
     
     // Instantiate the Frequency Sweeper
     frequency_sweeper sweeper (
@@ -217,9 +257,9 @@ module UART_FIFO_SWEEPER_TB;
     // Monitor and display results
     always @(posedge clk_50m) begin
         // Display FIFO writes
-        if (uart_fifo.fifo_wr_en) begin
-            $display("Time: %t, UART Received: 0x%h", $time, uart_fifo.uart_data);
-        end
+        //if (uart_fifo.fifo_wr_en) begin
+        //    $display("Time: %t, UART Received: 0x%h", $time, uart_fifo.uart_data);
+        //end
         
         // Display Sweeper activity
         if (sweep_start) begin
