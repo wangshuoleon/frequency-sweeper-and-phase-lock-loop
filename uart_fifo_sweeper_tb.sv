@@ -6,6 +6,7 @@ module UART_FIFO_SWEEPER_TB;
     parameter CLK_PERIOD = 20;      // 50MHz clock (20ns period)
     parameter BAUD_RATE = 115200;
     parameter BIT_PERIOD = 1000000000/BAUD_RATE; // 8.68us for 115200 baud
+    parameter DISSIPATIVE_MEASUREMENT_CYCLES = 255; // Enable dissipative measurement mode
     
     // Module Inputs
     reg clk_50m;
@@ -31,7 +32,7 @@ module UART_FIFO_SWEEPER_TB;
     wire sweep_start;
     wire sweep_done;
     wire frequency_update; // Pulse when new frequency is valid
-
+    wire dissipative_measurement_enable; 
     //dds
     reg [7:0] dac_data;
     reg [7:0] q_dac_data;
@@ -42,13 +43,24 @@ module UART_FIFO_SWEEPER_TB;
     wire [39:0] i_component; // Output magnitude signal
     wire data_valid;
     
-    // uart_tx
+    //output tx
     wire tx;
+    // uart_tx
+    wire tx_phase_detector; // Phase detector output to UART TX
     wire output_fifo_empty;
     wire [7:0] fifo_output;
     wire read_fifo_flag; // FIFO read flag
     wire baud_clk; // Baud rate clock 
 
+
+    //uart_tx for dissipative measurement
+    wire tx_dissipation;    
+    wire read_fifo_flag_dissipation; // FIFO read flag for dissipative measurement
+    wire [7:0] fifo_output_dissipation; // Output data for dissipative measurement
+
+
+    // mux select between dissipative measurement and PLL
+   assign tx = (dissipative_measurement_enable) ? tx_dissipation : tx_phase_detector;
 
 
     // updated uart_rx
@@ -100,7 +112,26 @@ module UART_FIFO_SWEEPER_TB;
     ); */
     
     // Instantiate the Frequency Sweeper
-    frequency_sweeper sweeper (
+    frequency_sweeper #(
+        .DISSIPATION_MEASUREMENT_CYCLES(DISSIPATIVE_MEASUREMENT_CYCLES) // Max cycles for dissipation measurement
+    ) sweeper (
+        .clk(clk_50m),
+        .reset(reset),
+        .fifo_data(fifo_data_out), // 80-bit FIFO data input
+        .fifo_empty(fifo_full),
+        .fifo_rd_en(sweeper_fifo_rd_en),
+        .dds_freq(dds_freq),
+        .sweep_start(sweep_start),
+        .sweep_done(sweep_done),
+        .frequency_update(frequency_update), 
+        .phase_error(16'h0),  // Not used in this test
+        .Dissipation_Measurement_enable(dissipative_measurement_enable)     // Not used in this test
+
+
+    );
+    
+    
+    /* sweeper (
         .clk(clk_50m),
         .reset(reset),
         .fifo_data({fifo_data_out}), // Adapt 8-bit FIFO to sweeper interface
@@ -112,7 +143,7 @@ module UART_FIFO_SWEEPER_TB;
         .frequency_update(frequency_update), 
         .phase_error(16'h0),  // Not used in this test
         .pll_enable()     // Not used in this test
-    );
+    ); */
 
     dds_sine_generator dds(
         .clk(clk_50m),
@@ -159,10 +190,40 @@ module UART_FIFO_SWEEPER_TB;
 	.wr_en(~output_fifo_empty),			//传输使能
 	.clk_50m(clk_50m),		//时钟
 	.clken(baud_clk),			//波特率
-	.tx(tx),				//数据发送线
+	.tx(tx_phase_detector),				//数据发送线
 	.tx_busy(),		//传输忙
 	.read_fifo_flag(read_fifo_flag) // FIFO read flag
 );
+
+   // uart module send the dissipative measurement data to the host
+     // interface between fifo and uart_tx
+    UART_TX dissipation_send_to_host(
+	.din(fifo_output_dissipation),	//传输数据
+	.wr_en(~dissipation_fifo_empty),			//传输使能
+	.clk_50m(clk_50m),		//时钟
+	.clken(baud_clk),			//波特率
+	.tx(tx_dissipation),				//数据发送线
+	.tx_busy(),		//传输忙
+	.read_fifo_flag(read_fifo_flag_dissipation) // FIFO read flag
+);
+
+
+  // fifo for dissipative measurement
+  fifo16to8 #(
+    .DEPTH (DISSIPATIVE_MEASUREMENT_CYCLES)  // number of 16-bit words
+  ) dissipation_fifo(
+    .clk(clk_50m),
+    .rst(reset),
+    .write_en(dissipative_measurement_enable), // Enable writing when in dissipative measurement mode
+    .data_in(dac_data),
+    .read_en(read_fifo_flag_dissipation),
+    .data_out (fifo_output_dissipation), // 8-bit output
+    .empty(dissipation_fifo_empty), // FIFO empty flag
+    .full()
+);
+
+
+
 
     Baud_Rate #(
     .BAUD (BAUD_RATE)
